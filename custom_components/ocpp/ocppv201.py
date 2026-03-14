@@ -496,6 +496,12 @@ class ChargePoint(cp):
 
     async def reset(self, typ: str = ""):
         """Hard reset charger unless soft reset requested."""
+        _LOGGER.warning(
+            "Sending OCPP Reset to charger id=%s cpid=%s type=%s",
+            self.id,
+            self.settings.cpid,
+            typ or "immediate",
+        )
         req: call.Reset = call.Reset(ResetEnumType.immediate)
         resp = await self.call(req)
         if resp.status != ResetStatusEnumType.accepted.value:
@@ -505,6 +511,12 @@ class ChargePoint(cp):
                 translation_key="ocpp_call_error",
                 translation_placeholders={"message": resp.status + status_suffix},
             )
+        _LOGGER.warning(
+            "Charger accepted OCPP Reset id=%s cpid=%s type=%s",
+            self.id,
+            self.settings.cpid,
+            typ or "immediate",
+        )
 
     @staticmethod
     def _parse_ocpp_key(key: str) -> tuple:
@@ -568,6 +580,13 @@ class ChargePoint(cp):
         if result["attribute_status"] == SetVariableStatusEnumType.accepted:
             return SetVariableResult.accepted
         elif result["attribute_status"] == SetVariableStatusEnumType.reboot_required:
+            _LOGGER.warning(
+                "Charger reported reboot required after configuration id=%s cpid=%s key=%s value=%s",
+                self.id,
+                self.settings.cpid,
+                key,
+                value,
+            )
             return SetVariableResult.reboot_required
         else:
             raise HomeAssistantError(

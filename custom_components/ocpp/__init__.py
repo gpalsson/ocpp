@@ -102,6 +102,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data.setdefault(DOMAIN, {})
         _LOGGER.info(entry.data)
 
+    _LOGGER.warning(
+        "Setting up OCPP entry id=%s csid=%s host=%s port=%s ssl=%s",
+        entry.entry_id,
+        entry.data.get(CONF_CSID),
+        entry.data.get(CONF_HOST),
+        entry.data.get(CONF_PORT),
+        entry.data.get(CONF_SSL),
+    )
+
     central_sys = await CentralSystem.create(hass, entry)
 
     dr = device_registry.async_get(hass)
@@ -239,8 +248,21 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if entry.entry_id in hass.data[DOMAIN]:
             # Close server
             central_sys = hass.data[DOMAIN][entry.entry_id]
+            _LOGGER.warning(
+                "Unloading OCPP entry id=%s csid=%s host=%s port=%s connections=%s",
+                entry.entry_id,
+                getattr(central_sys, "id", entry.data.get(CONF_CSID)),
+                entry.data.get(CONF_HOST),
+                entry.data.get(CONF_PORT),
+                getattr(central_sys, "connections", "unknown"),
+            )
             central_sys._server.close()
             await central_sys._server.wait_closed()
+            _LOGGER.warning(
+                "OCPP listener stopped for entry id=%s csid=%s",
+                entry.entry_id,
+                getattr(central_sys, "id", entry.data.get(CONF_CSID)),
+            )
             # Unload services
             # print(hass.services.async_services_for_domain(DOMAIN))
             for service in hass.services.async_services_for_domain(DOMAIN):
@@ -261,4 +283,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
+    _LOGGER.warning(
+        "Reload requested for OCPP entry id=%s csid=%s host=%s port=%s",
+        entry.entry_id,
+        entry.data.get(CONF_CSID),
+        entry.data.get(CONF_HOST),
+        entry.data.get(CONF_PORT),
+    )
     await hass.config_entries.async_reload(entry.entry_id)

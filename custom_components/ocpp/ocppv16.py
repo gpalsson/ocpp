@@ -678,9 +678,21 @@ class ChargePoint(cp):
     async def reset(self, typ: str = ResetType.hard):
         """Hard reset charger unless soft reset requested."""
         self._metrics[0][cstat.reconnects.value].value = 0
+        _LOGGER.warning(
+            "Sending OCPP Reset to charger id=%s cpid=%s type=%s",
+            self.id,
+            self.settings.cpid,
+            typ,
+        )
         req = call.Reset(typ)
         resp = await self.call(req)
         if resp.status == ResetStatus.accepted:
+            _LOGGER.warning(
+                "Charger accepted OCPP Reset id=%s cpid=%s type=%s",
+                self.id,
+                self.settings.cpid,
+                typ,
+            )
             return True
         else:
             _LOGGER.warning("Failed with response: %s", resp.status)
@@ -840,6 +852,13 @@ class ChargePoint(cp):
 
         if resp.status == ConfigurationStatus.reboot_required:
             self._requires_reboot = True
+            _LOGGER.warning(
+                "Charger reported reboot required after configuration id=%s cpid=%s key=%s value=%s",
+                self.id,
+                self.settings.cpid,
+                key,
+                value,
+            )
             await self.notify_ha(f"A reboot is required to apply {key}={value}")
             return SetVariableResult.reboot_required
 

@@ -227,6 +227,14 @@ class CentralSystem:
             ssl=self.ssl_context,
         )
         self._server = server
+        _LOGGER.warning(
+            "OCPP listener started csid=%s host=%s port=%s ssl=%s subprotocols=%s",
+            self.id,
+            self.settings.host,
+            self.settings.port,
+            self.settings.ssl,
+            self.subprotocols,
+        )
         return self
 
     @staticmethod
