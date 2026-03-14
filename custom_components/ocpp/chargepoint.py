@@ -606,19 +606,13 @@ class ChargePoint(cp):
 
     def _register_boot_notification(self):
         if self.triggered_boot_notification is False:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "BootNotification received from charger id=%s cpid=%s requested_by_ha=%s post_connect_success=%s reconnects=%s",
                 self.id,
                 self.settings.cpid,
                 self.triggered_boot_notification,
                 self.post_connect_success,
                 self._metrics[(0, cstat.reconnects.value)].value,
-            )
-            self.hass.async_create_task(
-                self.notify_ha(
-                    f"BootNotification received from charger {self.id} "
-                    f"(requested_by_ha={self.triggered_boot_notification})"
-                )
             )
             if not self.post_connect_success:
                 self.hass.async_create_task(self.post_connect())
