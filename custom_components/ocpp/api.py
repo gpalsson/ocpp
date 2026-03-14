@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import ssl
+import sys
 
 from functools import partial
 from homeassistant.config_entries import ConfigEntry, SOURCE_INTEGRATION_DISCOVERY
@@ -16,6 +17,7 @@ from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from websockets import Subprotocol, NegotiationError
+from websockets.exceptions import InvalidMessage
 import websockets.server
 from websockets.asyncio.server import ServerConnection
 
@@ -103,6 +105,31 @@ def _format_socket_address(address) -> str:
     return str(address)
 
 
+def _is_benign_invalid_http_request(err: BaseException) -> bool:
+    """Return True for clients that connect and close before sending HTTP."""
+    return isinstance(err, InvalidMessage) and str(err) == (
+        "did not receive a valid HTTP request"
+    )
+
+
+class OcppWebSocketLogger(logging.LoggerAdapter):
+    """Suppress expected websocket noise while preserving real errors."""
+
+    def log(self, level, msg, *args, **kwargs):
+        exc_info = kwargs.get("exc_info")
+        err = None
+        if exc_info:
+            if exc_info is True:
+                err = sys.exc_info()[1]
+            elif isinstance(exc_info, tuple) and len(exc_info) >= 2:
+                err = exc_info[1]
+
+        if msg == "opening handshake failed" and _is_benign_invalid_http_request(err):
+            return
+
+        super().log(level, msg, *args, **kwargs)
+
+
 class OcppServerConnection(ServerConnection):
     """Server connection with handshake diagnostics."""
 
@@ -115,16 +142,27 @@ class OcppServerConnection(ServerConnection):
                 getattr(self, "transport", None)
                 and self.transport.get_extra_info("sslcontext")
             )
-            _LOGGER.warning(
-                (
-                    "WebSocket opening handshake failed: "
-                    "peer=%s local=%s secure=%s error=%s"
-                ),
-                _format_socket_address(getattr(self, "remote_address", None)),
-                _format_socket_address(getattr(self, "local_address", None)),
-                secure,
-                err,
-            )
+            peer = _format_socket_address(getattr(self, "remote_address", None))
+            local = _format_socket_address(getattr(self, "local_address", None))
+            if _is_benign_invalid_http_request(err):
+                _LOGGER.debug(
+                    "Suppressed benign WebSocket handshake failure: peer=%s local=%s secure=%s error=%s",
+                    peer,
+                    local,
+                    secure,
+                    err,
+                )
+            else:
+                _LOGGER.warning(
+                    (
+                        "WebSocket opening handshake failed: "
+                        "peer=%s local=%s secure=%s error=%s"
+                    ),
+                    peer,
+                    local,
+                    secure,
+                    err,
+                )
             raise
 
 
@@ -220,6 +258,7 @@ class CentralSystem:
             self.settings.port,
             select_subprotocol=self.select_subprotocol,
             subprotocols=self.subprotocols,
+            logger=OcppWebSocketLogger(logging.getLogger("websockets.server"), {}),
             create_connection=OcppServerConnection,
             ping_interval=None,  # ping interval is not used here, because we send pings mamually in ChargePoint.monitor_connection()
             ping_timeout=None,
@@ -227,7 +266,7 @@ class CentralSystem:
             ssl=self.ssl_context,
         )
         self._server = server
-        _LOGGER.warning(
+        _LOGGER.debug(
             "OCPP listener started csid=%s host=%s port=%s ssl=%s subprotocols=%s",
             self.id,
             self.settings.host,
@@ -272,14 +311,14 @@ class CentralSystem:
         peer = _format_socket_address(getattr(websocket, "remote_address", None))
         local = _format_socket_address(getattr(websocket, "local_address", None))
         if websocket.subprotocol is not None:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Websocket Subprotocol matched: %s peer=%s local=%s",
                 websocket.subprotocol,
                 peer,
                 local,
             )
         else:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 (
                     "Websocket Subprotocol not provided by charger: "
                     "default to ocpp1.6 peer=%s local=%s"
@@ -288,7 +327,7 @@ class CentralSystem:
                 local,
             )
 
-        _LOGGER.warning(
+        _LOGGER.debug(
             "Charger websocket path=%s peer=%s", websocket.request.path, peer
         )
         cp_id = websocket.request.path.strip("/")

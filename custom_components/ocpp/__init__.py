@@ -102,7 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data.setdefault(DOMAIN, {})
         _LOGGER.info(entry.data)
 
-    _LOGGER.warning(
+    _LOGGER.debug(
         "Setting up OCPP entry id=%s csid=%s host=%s port=%s ssl=%s",
         entry.entry_id,
         entry.data.get(CONF_CSID),
@@ -248,7 +248,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if entry.entry_id in hass.data[DOMAIN]:
             # Close server
             central_sys = hass.data[DOMAIN][entry.entry_id]
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Unloading OCPP entry id=%s csid=%s host=%s port=%s connections=%s",
                 entry.entry_id,
                 getattr(central_sys, "id", entry.data.get(CONF_CSID)),
@@ -258,7 +258,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             central_sys._server.close()
             await central_sys._server.wait_closed()
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "OCPP listener stopped for entry id=%s csid=%s",
                 entry.entry_id,
                 getattr(central_sys, "id", entry.data.get(CONF_CSID)),
@@ -283,7 +283,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
-    _LOGGER.warning(
+    _LOGGER.debug(
         "Reload requested for OCPP entry id=%s csid=%s host=%s port=%s",
         entry.entry_id,
         entry.data.get(CONF_CSID),

@@ -823,7 +823,7 @@ class ChargePoint(cp):
 
         if resp.unknown_key is not None:
             if key in resp.unknown_key:
-                _LOGGER.warning("%s is unknown (not supported)", key)
+                _LOGGER.debug("%s is unknown (not supported)", key)
                 return "Unknown"
 
         for key_value in resp.configuration_key:
